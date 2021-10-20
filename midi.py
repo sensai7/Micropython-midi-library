@@ -491,6 +491,10 @@ MIDI_QTR_FRAME_CODE = {
     1: "25 fps",
     2: "29.97 fps",
     3: "30 fps",
+    "24 fps": 0,
+    "25 fps": 1,
+    "29.97 fps": 2,
+    "30 fps": 3,
 }
 
 # todo sort these
@@ -543,9 +547,12 @@ class Midi:
     def write(self, value):
         self.uart.write(bytes([value]))
 
+    def read(self):
+        pass
+
     # MIDI send methods ################################################################################################
+    # todo percentage to 7 bits function
     # todo sort these
-    # todo add more
     # todo make sure they're properly tabulated in console
     def send_note_on(self, channel, note, velocity):
         self.write(MESSAGE_NOTE_ON | channel)
@@ -597,7 +604,48 @@ class Midi:
         print(f"-> SYSEX STOP")
 
     def send_sysex(self, sysex_list):
-        print(f"SYSEX SEQUENCE START")
+        print(f"SYSEX SEQUENCE START\n...")
         for item in sysex_list:
             self.write(item)
         print(f"SYSEX SEQUENCE END")
+
+    def send_poly_aftertouch(self, channel, note, pressure):
+        self.write(MESSAGE_POLYPHONIC_AFTERTOUCH | channel)
+        self.write(note)
+        self.write(pressure)
+        print(f"-> POLY AT\t{note}({NOTE_CODE[note][0]}) PRESSURE {pressure}")
+
+    def send_program_change(self, channel, program):
+        self.write(MESSAGE_PROGRAM_CHANGE | channel)
+        self.write(program)
+        print(f"-> PROGRAM CHANGE\t{channel} TO {program}")
+
+    def send_timing_clock(self):
+        self.write(MESSAGE_TIMING_CLOCK)
+        print(f"-> TIMING CLOCK")
+
+    def send_tune_request(self):
+        self.write(MESSAGE_TUNE_REQUEST)
+        print(f"-> TUNE REQUEST")
+
+    def send_song_select(self, song):
+        self.write(MESSAGE_SONG_SELECT)
+        self.write(song)
+        print(f"-> SONG SELECT\t SONG {song}")
+
+    def send_song_position_pointer(self, beats_since_start):
+        lsb = beats_since_start & 0x7F
+        msb = (beats_since_start >> 7) & 0x7F
+        self.write(MESSAGE_SONG_POSITION_POINTER)
+        self.write(lsb)
+        self.write(msb)
+        print(f"-> SONG POSITION\t BEAT {beats_since_start}")
+
+    def send_time_code_qtr_frame(self, rate, hours, minutes, seconds, frames):
+        self.write(MESSAGE_MIDI_TIME_CODE_QTR_FRAME)
+        self.write((rate << 5)| hours)
+        self.write(minutes)
+        self.write(seconds)
+        self.write(frames)
+        print(f"-> TIME CODE\t{hours}:{minutes}:{seconds}.{frames}")
+
