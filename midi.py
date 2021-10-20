@@ -541,7 +541,7 @@ class Midi:
 
     # UART "inherited" methods #########################################################################################
     def write(self, value):
-        self.uart.write(bytes(value))
+        self.uart.write(bytes([value]))
 
     # MIDI send methods ################################################################################################
     # todo sort these
