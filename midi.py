@@ -520,7 +520,6 @@ MIDI_SEQUENCE = {
     "RESET": 0xFF,
 }
 
-
 # noinspection PyTypeChecker
 class Midi:
     def __init__(self, uart, baudrate, tx, rx):
@@ -552,7 +551,7 @@ class Midi:
         self.uart.write(bytes([value]))
 
     def read(self):
-        pass
+        return self.uart.read()
 
     # MIDI send methods ################################################################################################
     # todo percentage to 7 bits function
