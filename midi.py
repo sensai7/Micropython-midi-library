@@ -497,23 +497,27 @@ MIDI_QTR_FRAME_CODE = {
     "30 fps": 3,
 }
 
-# todo sort these
 MIDI_SEQUENCE = {
     "NONE": 0,
-    "NOTE_ON": 0x90,
     "NOTE_OFF": 0x80,
+    "NOTE_ON": 0x90,
     "POLY_AFTERTOUCH": 0xA0,
-    "PROGRAM_CHANGE": 0xC0,
     "CONTROL_CHANGE": 0xB0,
-    "START": 0xFA,
-    "STOP": 0xFC,
-    "CONTINUE": 0xFB,
-    "TIMING_CLOCK": 0xF8,
+    "PROGRAM_CHANGE": 0xC0,
+    "CHANNEL_AFTERTOUCH": 0xD0,
+    "PITCH_BEND": 0xE0,
     "SYSEX": 0xF0,
-    "TUNE_REQUEST": 0xF6,
-    "SONG_SELECT": 0xF3,
+    "TIME_CODE_QTR_FRAME": 0xF1,
     "SONG_POSITION_POINTER": 0xF2,
-    "TIME_CODE_QTR_FRAME": 0xF1
+    "SONG_SELECT": 0xF3,
+    "TUNE_REQUEST": 0xF6,
+    "SYSEX_END": 0xF7,
+    "TIMING_CLOCK": 0xF8,
+    "START": 0xFA,
+    "CONTINUE": 0xFB,
+    "STOP": 0xFC,
+    "ACTIVE_SENSING": 0xFD,
+    "RESET": 0xFF,
 }
 
 
@@ -528,7 +532,7 @@ class Midi:
         self.aftertouch = {}
         self.program_change = {}
         self.song_position = 0
-        self.last_sequence = ""
+        self.last_sequence = MIDI_SEQUENCE["NONE"]
         self.message = 0
         self.channel = 0
         self.state = 0
