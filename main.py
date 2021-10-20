@@ -20,7 +20,7 @@ led.off()
 time.sleep(1)
 
 led.on()
-my_midi.send_cc(midi.CHANNEL[1], midi.CONTROL_CHANGE_CODE["MODULATION_WHEEL"], value=80)
+my_midi.send_control_change(midi.CHANNEL[1], midi.CONTROL_CHANGE_CODE["MODULATION_WHEEL"], value=80)
 led.off()
 time.sleep(1)
 
@@ -93,5 +93,16 @@ led.on()
 my_midi.send_time_code_qtr_frame(midi.MIDI_QTR_FRAME_CODE["30 fps"], hours=23, minutes=24, seconds=14, frames=1)
 led.off()
 time.sleep(1)
+
+led.on()
+my_midi.send_active_sensing()
+led.off()
+time.sleep(1)
+
+led.on()
+my_midi.send_reset()
+led.off()
+time.sleep(1)
+
 
 print("Execution finished.")

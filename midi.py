@@ -520,7 +520,13 @@ MIDI_SEQUENCE = {
     "RESET": 0xFF,
 }
 
-# noinspection PyTypeChecker
+
+# Misc. methods ########################################################################################################
+def percentage_to_7_bit(percentage):
+    return int(percentage / 100 * 127)
+
+
+# Midi class ###########################################################################################################
 class Midi:
     def __init__(self, uart, baudrate, tx, rx):
         # todo sort these
@@ -544,9 +550,9 @@ class Midi:
         self.sysex = []
         print("Starting MIDI...")
         self.uart = UART(uart, baudrate, tx=tx, rx=rx)
-        print("Success! -> = OUTPUT\t<- = INPUT")
+        print("Success!\t->OUTPUT  <-INPUT")
 
-    # UART "inherited" methods #########################################################################################
+    # UART "inherited" methods.  C-based classes don't work when inherited in python ###################################
     def write(self, value):
         self.uart.write(bytes([value]))
 
@@ -554,26 +560,39 @@ class Midi:
         return self.uart.read()
 
     # MIDI send methods ################################################################################################
-    # todo percentage to 7 bits function
-    # todo sort these
-    # todo make sure they're properly tabulated in console
-    def send_note_on(self, channel, note, velocity):
-        self.write(MESSAGE_NOTE_ON | channel)
-        self.write(note)
-        self.write(velocity)
-        print(f"-> NOTE ON\t{note}({NOTE_CODE[note][0]}) VELOCITY {velocity}")
-
     def send_note_off(self, channel, note):
         self.write(MESSAGE_NOTE_OFF | channel)
         self.write(note)
         self.write(0)
-        print(f"-> NOTE OFF\t{note}({NOTE_CODE[note][0]})")
+        print(f"-> NOTE OFF\t\t{note} ({NOTE_CODE[note][0]})")
 
-    def send_cc(self, channel, cc, value):
+    def send_note_on(self, channel, note, velocity):
+        self.write(MESSAGE_NOTE_ON | channel)
+        self.write(note)
+        self.write(velocity)
+        print(f"-> NOTE ON\t\t{note} ({NOTE_CODE[note][0]})\t\tVELOCITY {velocity}")
+
+    def send_poly_aftertouch(self, channel, note, pressure):
+        self.write(MESSAGE_POLYPHONIC_AFTERTOUCH | channel)
+        self.write(note)
+        self.write(pressure)
+        print(f"-> POLY AT\t\t{note} ({NOTE_CODE[note][0]})\t\t\tPRESSURE {pressure}")
+
+    def send_control_change(self, channel, cc, value):
         self.write(MESSAGE_CONTROL_CHANGE | channel)
         self.write(cc)
         self.write(value)
-        print(f"-> CONTROL CHANGE\t{cc}({CONTROL_CHANGE_CODE[cc]}) VALUE {value}")
+        print(f"-> CONTROL CHANGE\t{cc} ({CONTROL_CHANGE_CODE[cc]})\tVALUE {value}")
+
+    def send_program_change(self, channel, program):
+        self.write(MESSAGE_PROGRAM_CHANGE | channel)
+        self.write(program)
+        print(f"-> PROGRAM CHANGE\t{channel} TO {program}")
+
+    def send_channel_aftertouch(self, channel, amount):
+        self.write(MESSAGE_CHANNEL_AFTERTOUCH | channel)
+        self.write(amount)
+        print(f"-> CHANNEL AT\t\tCHANNEL {channel+1}\t\tAMOUNT {amount}")
 
     def send_pitch_bend(self, channel, note, amount):
         self.write(MESSAGE_PITCH_BEND | channel)
@@ -581,60 +600,17 @@ class Midi:
         self.write(amount)
         print(f"-> PITCH BEND\t{note} AMOUNT {amount}")
 
-    def send_channel_aftertouch(self, channel, amount):
-        self.write(MESSAGE_CHANNEL_AFTERTOUCH | channel)
-        self.write(amount)
-        print(f"-> CHANNEL AT\t{channel} AMOUNT {amount}")
-
-    def send_playback_start(self):
-        self.write(MESSAGE_START)
-        print(f"-> PLAYBACK START")
-
-    def send_playback_stop(self):
-        self.write(MESSAGE_STOP)
-        print(f"-> PLAYBACK STOP")
-
-    def send_playback_continue(self):
-        self.write(MESSAGE_CONTINUE)
-        print(f"-> PLAYBACK CONTINUE")
-
     def send_sysex_start(self):
         self.write(MESSAGE_SYSTEM_EXCLUSIVE_START)
         print(f"-> SYSEX START")
 
-    def send_sysex_stop(self):
-        self.write(MESSAGE_SYSTEM_EXCLUSIVE_STOP)
-        print(f"-> SYSEX STOP")
-
-    def send_sysex(self, sysex_list):
-        print(f"SYSEX SEQUENCE START\n...")
-        for item in sysex_list:
-            self.write(item)
-        print(f"SYSEX SEQUENCE END")
-
-    def send_poly_aftertouch(self, channel, note, pressure):
-        self.write(MESSAGE_POLYPHONIC_AFTERTOUCH | channel)
-        self.write(note)
-        self.write(pressure)
-        print(f"-> POLY AT\t{note}({NOTE_CODE[note][0]}) PRESSURE {pressure}")
-
-    def send_program_change(self, channel, program):
-        self.write(MESSAGE_PROGRAM_CHANGE | channel)
-        self.write(program)
-        print(f"-> PROGRAM CHANGE\t{channel} TO {program}")
-
-    def send_timing_clock(self):
-        self.write(MESSAGE_TIMING_CLOCK)
-        print(f"-> TIMING CLOCK")
-
-    def send_tune_request(self):
-        self.write(MESSAGE_TUNE_REQUEST)
-        print(f"-> TUNE REQUEST")
-
-    def send_song_select(self, song):
-        self.write(MESSAGE_SONG_SELECT)
-        self.write(song)
-        print(f"-> SONG SELECT\t SONG {song}")
+    def send_time_code_qtr_frame(self, rate, hours, minutes, seconds, frames):
+        self.write(MESSAGE_MIDI_TIME_CODE_QTR_FRAME)
+        self.write((rate << 5) | hours)
+        self.write(minutes)
+        self.write(seconds)
+        self.write(frames)
+        print(f"-> TIME CODE\t\t{hours}:{minutes}:{seconds}.{frames}")
 
     def send_song_position_pointer(self, beats_since_start):
         lsb = beats_since_start & 0x7F
@@ -642,13 +618,57 @@ class Midi:
         self.write(MESSAGE_SONG_POSITION_POINTER)
         self.write(lsb)
         self.write(msb)
-        print(f"-> SONG POSITION\t BEAT {beats_since_start}")
+        print(f"-> SONG POSITION\tBEAT {beats_since_start}")
 
-    def send_time_code_qtr_frame(self, rate, hours, minutes, seconds, frames):
-        self.write(MESSAGE_MIDI_TIME_CODE_QTR_FRAME)
-        self.write((rate << 5)| hours)
-        self.write(minutes)
-        self.write(seconds)
-        self.write(frames)
-        print(f"-> TIME CODE\t{hours}:{minutes}:{seconds}.{frames}")
+    def send_song_select(self, song):
+        self.write(MESSAGE_SONG_SELECT)
+        self.write(song)
+        print(f"-> SONG SELECT\t\tSONG {song}")
 
+    def send_tune_request(self):
+        self.write(MESSAGE_TUNE_REQUEST)
+        print(f"-> TUNE REQUEST")
+
+    def send_sysex(self, sysex_list):
+        for item in sysex_list:
+            self.write(item)
+
+    def send_sysex_stop(self):
+        self.write(MESSAGE_SYSTEM_EXCLUSIVE_STOP)
+        print(f"-> SYSEX STOP")
+
+    def send_timing_clock(self):
+        self.write(MESSAGE_TIMING_CLOCK)
+        print(f"-> TIMING CLOCK")
+
+    def send_playback_start(self):
+        self.write(MESSAGE_START)
+        print(f"-> PLAYBACK START")
+
+    def send_playback_continue(self):
+        self.write(MESSAGE_CONTINUE)
+        print(f"-> PLAYBACK CONTINUE")
+
+    def send_playback_stop(self):
+        self.write(MESSAGE_STOP)
+        print(f"-> PLAYBACK STOP")
+
+    def send_active_sensing(self):
+        self.write(MESSAGE_ACTIVE_SENSING)
+        print(f"-> ACTIVE SENSING")
+
+    def send_reset(self):
+        self.write(MESSAGE_SYSTEM_RESET)
+        print(f"-> SYSTEM RESET")
+
+    # MIDI receive methods #############################################################################################
+    # def load_message(self, msg):
+    #     self.message = msg
+    #     # self.analyze_message()
+    #
+    # def get_channel(self):
+    #     return self.message & 0x0F
+
+    # def analyze_message(self):
+    #     match self.state:
+    #         # ANYTHING
