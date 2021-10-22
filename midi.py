@@ -498,7 +498,7 @@ MIDI_QTR_FRAME_CODE = {
 }
 
 MIDI_SEQUENCE = {
-    "NONE": 0,
+    "NONE": None,
     "NOTE_OFF": 0x80,
     "NOTE_ON": 0x90,
     "POLY_AFTERTOUCH": 0xA0,
@@ -527,37 +527,77 @@ def percentage_to_7_bit(percentage):
 
 
 # Midi class ###########################################################################################################
+# noinspection PyTypeChecker
 class Midi:
-    def __init__(self, uart, baudrate, tx, rx):
-        # todo sort these
-        # todo fill the dictionaries' fields with nones
-        self.song_select = {}
-        self.song_position_pointer = {}
-        self.pitch_bend = {}
-        self.aftertouch = {}
-        self.program_change = {}
-        self.song_position = 0
+    def __init__(self, uart, tx, rx):
         self.last_sequence = MIDI_SEQUENCE["NONE"]
         self.message = 0
         self.channel = 0
         self.state = 0
-        self.time_code_qtr_frame = {}
-        self.note_on = {}
-        self.note_off = {}
-        self.control_change = {}
-        self.poly_aftertouch = {}
-        self.sysex_vendor_id = 0
-        self.sysex = []
+        # todo sort these
+        # todo fill the dictionaries' fields with nones
+        self.last_rx_parameters = {
+            "note_on": {
+                "note": None,
+                "velocity": None,
+            },
+            "note_off": {
+                "note": None,
+            },
+            "poly_aftertouch": {
+                "note": None,
+                "pressure": None,
+            },
+            "control_change": {
+                "code": None,
+                "value": None,
+            },
+            "program_change": {
+                "program": None,
+            },
+            "channel_aftertouch": {
+                "pressure": None,
+            },
+            "pitch_bend": {
+                "note": None,
+                "bend": None,
+            },
+            "song_position": 0,
+            "song_position_pointer": {
+                "LSB": None,
+                "MSB": None,
+                "Position": None,
+            },
+            "song_select": {
+                "song": None,
+            },
+            "time_code_qtr_frame": {
+                "rate": None,
+                "hours": None,
+                "minutes": None,
+                "seconds": None,
+                "frames": None,
+            },
+            "sysex_vendor_id": "",
+            "sysex": [],
+        }
         print("Starting MIDI...")
-        self.uart = UART(uart, baudrate, tx=tx, rx=rx)
+        self.uart = UART(uart, BAUD, tx=tx, rx=rx)
         print("Success!\t->OUTPUT  <-INPUT")
 
     # UART "inherited" methods.  C-based classes don't work when inherited in python ###################################
     def write(self, value):
         self.uart.write(bytes([value]))
 
-    def read(self):
-        return self.uart.read()
+    def read(self, n_bytes):
+        return self.uart.read(n_bytes)
+
+    def any(self):
+        return self.uart.any()
+
+    # Other ############################################################################################################
+    def get_parameter(self, message_type, parameter):
+        return self.last_rx_parameters[message_type][parameter]
 
     # MIDI send methods ################################################################################################
     def send_note_off(self, channel, note):
@@ -662,13 +702,191 @@ class Midi:
         print(f"-> SYSTEM RESET")
 
     # MIDI receive methods #############################################################################################
-    # def load_message(self, msg):
-    #     self.message = msg
-    #     # self.analyze_message()
-    #
-    # def get_channel(self):
-    #     return self.message & 0x0F
+    def load_message(self, msg):
+        self.message = int(msg[0])
+        self.analyze_message()
 
-    # def analyze_message(self):
-    #     match self.state:
-    #         # ANYTHING
+    def get_channel(self):
+        return self.message & 0x0F
+
+    def analyze_message(self):
+        if self.state == 0:
+            if self.message < 0xF0:
+                self.state = self.message & 0xF0
+                self.channel = self.get_channel()
+            else:
+                self.state = self.message
+        # NOTE OFF
+        elif self.state == 0x80:
+            # noinspection PyTypeChecker
+            self.last_rx_parameters["note_off"]["note"] = self.message
+            self.state = 0x81
+        elif self.state == 0x81:
+            self.state = 0
+            note_code = self.last_rx_parameters["note_off"]["note"]
+            note_name = NOTE_CODE[self.last_rx_parameters["note_off"]["note"]]
+            print(f"<- NOTE OFF\t\t{note_code} ({note_name})")
+            self.last_sequence = MIDI_SEQUENCE["NOTE_OFF"]
+        # NOTE ON
+        elif self.state == 0x90:
+            self.last_rx_parameters["note_on"]["note"] = self.message
+            self.state = 0x91
+        elif self.state == 0x91:
+            self.last_rx_parameters["note_on"]["velocity"] = self.message
+            self.state = 0
+            note_code = self.last_rx_parameters["note_on"]["note"]
+            note_name = NOTE_CODE[self.last_rx_parameters["note_on"]["note"]]
+            velocity = self.last_rx_parameters["note_on"]['velocity']
+            print(f"<- NOTE ON\t\t{note_code} ({note_name})\t\tVELOCITY {velocity}")
+            self.last_sequence = MIDI_SEQUENCE["NOTE_ON"]
+        # POLY AFTERTOUCH
+        # elif self.state == 0xA0:
+        #     self.last_rx_parameters["poly_aftertouch"]["note"] = self.message
+        #     self.state = 0xA1
+        # elif self.state == 0xA1:
+        #     self.last_rx_parameters["poly_aftertouch"]["pressure"] = self.message
+        #     self.state = 0
+        #     note_name = NOTE_CODE[self.last_rx_parameters["poly_aftertouch"]["note"]][0]
+        #     pressure = self.last_rx_parameters["poly_aftertouch"]["pressure"]
+        #     print(f"POLY AFTERTOUCH\t\tCHANNEL {self.channel}\tNOTE {note_name} PRESSURE {pressure}")
+        #     print(f"<- POLY AFTERTOUCH\t\t{note_code} ({note_name})\t\tVELOCITY {velocity}")
+        #     self.last_sequence = MIDI_SEQUENCE["POLY_AFTERTOUCH"]
+
+        #         # CONTROL CHANGE
+        #         elif self.state == 0xB0:
+        #             self.control_change["code"] = self.message
+        #             self.state = 0xB1
+        #         elif self.state == 0xB1:
+        #             self.control_change["value"] = self.message
+        #             self.state = 0
+        #             cc_name = CONTROL_CHANGE_CODE[self.control_change["code"]]
+        #             value = self.control_change["value"]
+        #             print(f"CONTROL CHANGE\tCHANNEL {self.channel}\t{cc_name}\t{value}")
+        #             self.last_sequence = MIDI_SEQUENCE["CONTROL_CHANGE"]
+        #
+        #         # PROGRAM CHANGE
+        #         elif self.state == 0xC0:
+        #             self.program_change["program"] = self.message
+        #             self.state = 0
+        #             program = self.program_change["program"]
+        #             print(f"PROGRAM CHANGE\t\tCHANNEL {self.channel}\t{program}")
+        #
+        #         # AFTERTOUCH
+        #         elif self.state == 0xD0:
+        #             self.aftertouch["pressure"] = self.message
+        #             self.state = 0
+        #             pressure = self.aftertouch["pressure"]
+        #             print(f"AFTERTOUCH\t\tCHANNEL {self.channel}\t{pressure}")
+        #
+        #         # PITCH BEND
+        #         elif self.state == 0xE0:
+        #             self.pitch_bend["note"] = self.message
+        #             self.state = 0xE1
+        #         elif self.state == 0xE1:
+        #             self.pitch_bend["bend"] = self.message
+        #             self.state = 0
+        #             note = self.pitch_bend["note"]
+        #             bend = self.pitch_bend["bend"]
+        #             print(f"PITCH BEND\t\tCHANNEL {self.channel}\tNOTE {note}\tBEND {bend}")
+        #
+        #         elif self.state == 0xFA:
+        #             self.state = 0
+        #             print(f"START")
+        #             self.last_sequence = MIDI_SEQUENCE["START"]
+        #
+        #         elif self.state == 0xFC:
+        #             self.state = 0
+        #             print(f"STOP")
+        #             self.last_sequence = MIDI_SEQUENCE["STOP"]
+        #
+        #         elif self.state == 0xFB:
+        #             self.state = 0
+        #             print(f"CONTINUE")
+        #             self.last_sequence = MIDI_SEQUENCE["CONTINUE"]
+        #
+        #         elif self.state == 0xF8:
+        #             self.state = 0
+        #             print(f"TIMING CLOCK")
+        #             self.last_sequence = MIDI_SEQUENCE["TIMING_CLOCK"]
+        #
+        #         elif self.state == 0xF0:
+        #             self.state = 0xF4
+        #             print(f"SYSEX START")
+        #             self.last_sequence = MIDI_SEQUENCE["SYSEX"]
+        #             self.sysex_vendor_id = self.message
+        #         elif self.state == 0xF4:
+        #             if self.message != MESSAGE_SYSTEM_EXCLUSIVE_STOP:
+        #                 self.sysex.append(self.message)
+        #                 print(f"SYSEX: {hex(self.message)}")
+        #             else:
+        #                 self.state = 0
+        #                 print(f"SYSEX STOP")
+        #
+        #         elif self.state == 0xF6:
+        #             self.state = 0
+        #             print(f"TUNE REQUEST")
+        #             self.last_sequence = MIDI_SEQUENCE["TUNE_REQUEST"]
+        #
+        #         elif self.state == 0xF3:
+        #             self.song_select["song"] = self.message
+        #             self.state = 0
+        #             song = self.song_select["song"]
+        #             print(f"SONG SELECT\t\t{song}")
+        #             self.last_sequence = MIDI_SEQUENCE["SONG_SELECT"]
+        #
+        #         elif self.state == 0xFE:
+        #             self.state = 0
+        #             print(f"ACTIVE SENSING")
+        #             self.last_sequence = MIDI_SEQUENCE["ACTIVE_SENSING"]
+        #
+        #         elif self.state == 0xFF:
+        #             self.state = 0
+        #             print(f"SYSTEM RESET")
+        #             self.last_sequence = MIDI_SEQUENCE["SYSTEM_RESET"]
+        #
+        #         # MIDI TIME CODE QTR FRAME
+        #         elif self.state == 0xF1:
+        #             self.state = 0xF10
+        #             rate = (0b01100000 | self.message) >> 5
+        #             self.time_code_qtr_frame["rate"] = MIDI_QTR_FRAME_CODE[rate]
+        #             hour = (0b00011111 | self.message)
+        #             self.time_code_qtr_frame["hour"] = hour
+        #         elif self.state == 0xF10:
+        #             self.state = 0xF11
+        #             minute = self.message
+        #             self.time_code_qtr_frame["minute"] = minute
+        #         elif self.state == 0xF11:
+        #             self.state = 0xF12
+        #             second = self.message
+        #             self.time_code_qtr_frame["second"] = second
+        #         elif self.state == 0xF12:
+        #             self.state = 0
+        #             frame = self.message
+        #             self.time_code_qtr_frame["frame"] = frame
+        #             rate = self.time_code_qtr_frame["rate"]
+        #             hour = self.time_code_qtr_frame["hour"]
+        #             second = self.time_code_qtr_frame["second"]
+        #             minute = self.time_code_qtr_frame["minute"]
+        #             print(f"TIME CODE QTR FRAME\t{rate}\t{hour}:{minute}:{second}.{frame}")
+        #             self.last_sequence = MIDI_SEQUENCE["TIME_CODE_QTR_FRAME"]
+        #
+        #         # SONG POSITION POINTER
+        #         elif self.state == 0xF2:
+        #             self.song_position_pointer["LSB"] = self.message
+        #             self.state = 0xF9
+        #         elif self.state == 0xF9:
+        #             self.state = 0
+        #             self.song_position_pointer["MSB"] = self.message
+        #             position = (self.song_position_pointer["MSB"] << 8) | self.song_position_pointer["LSB"]
+        #             self.song_position_pointer["position"] = position
+        #             print(f"SONG POSITION POINTER {position}")
+        #             self.last_sequence = MIDI_SEQUENCE["SONG_POSITION_POINTER"]
+        #
+        #         # DEFAULT
+        #         elif self.state == _:
+        #             self.state = 0
+        #             print("-")
+        else:
+            self.state = 0
+            print("-")
+
