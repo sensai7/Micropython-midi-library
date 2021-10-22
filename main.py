@@ -21,6 +21,7 @@ time.sleep(1)
 while True:
     while my_midi.any() > 0:
         byte = my_midi.read(1)
+        print(hex(byte[0]))
         my_midi.load_message(byte)
 
         if my_midi.last_sequence == midi.MIDI_SEQUENCE["NOTE_ON"]:
@@ -35,5 +36,3 @@ while True:
             note = my_midi.get_parameter("note_off", "note")
             # do something with this parameter
             led.off()
-
-

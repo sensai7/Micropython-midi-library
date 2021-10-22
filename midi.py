@@ -559,7 +559,8 @@ class Midi:
                 "pressure": None,
             },
             "pitch_bend": {
-                "note": None,
+                "bend_LSB": None,
+                "bend_MSB": None,
                 "bend": None,
             },
             "song_position": 0,
@@ -724,8 +725,8 @@ class Midi:
         elif self.state == 0x81:
             self.state = 0
             note_code = self.last_rx_parameters["note_off"]["note"]
-            note_name = NOTE_CODE[self.last_rx_parameters["note_off"]["note"]]
-            print(f"<- NOTE OFF\t\t{note_code} ({note_name})")
+            note_name = NOTE_CODE[self.last_rx_parameters["note_off"]["note"]][0]
+            print(f"<- CH{self.channel+1} NOTE OFF\t\t{note_code} ({note_name})")
             self.last_sequence = MIDI_SEQUENCE["NOTE_OFF"]
         # NOTE ON
         elif self.state == 0x90:
@@ -735,34 +736,34 @@ class Midi:
             self.last_rx_parameters["note_on"]["velocity"] = self.message
             self.state = 0
             note_code = self.last_rx_parameters["note_on"]["note"]
-            note_name = NOTE_CODE[self.last_rx_parameters["note_on"]["note"]]
+            note_name = NOTE_CODE[self.last_rx_parameters["note_on"]["note"]][0]
             velocity = self.last_rx_parameters["note_on"]['velocity']
-            print(f"<- NOTE ON\t\t{note_code} ({note_name})\t\tVELOCITY {velocity}")
+            print(f"<- CH{self.channel+1} NOTE ON\t\t{note_code} ({note_name})\t\t\tVELOCITY {velocity}")
             self.last_sequence = MIDI_SEQUENCE["NOTE_ON"]
         # POLY AFTERTOUCH
-        # elif self.state == 0xA0:
-        #     self.last_rx_parameters["poly_aftertouch"]["note"] = self.message
-        #     self.state = 0xA1
-        # elif self.state == 0xA1:
-        #     self.last_rx_parameters["poly_aftertouch"]["pressure"] = self.message
-        #     self.state = 0
-        #     note_name = NOTE_CODE[self.last_rx_parameters["poly_aftertouch"]["note"]][0]
-        #     pressure = self.last_rx_parameters["poly_aftertouch"]["pressure"]
-        #     print(f"POLY AFTERTOUCH\t\tCHANNEL {self.channel}\tNOTE {note_name} PRESSURE {pressure}")
-        #     print(f"<- POLY AFTERTOUCH\t\t{note_code} ({note_name})\t\tVELOCITY {velocity}")
-        #     self.last_sequence = MIDI_SEQUENCE["POLY_AFTERTOUCH"]
-
-        #         # CONTROL CHANGE
-        #         elif self.state == 0xB0:
-        #             self.control_change["code"] = self.message
-        #             self.state = 0xB1
-        #         elif self.state == 0xB1:
-        #             self.control_change["value"] = self.message
-        #             self.state = 0
-        #             cc_name = CONTROL_CHANGE_CODE[self.control_change["code"]]
-        #             value = self.control_change["value"]
-        #             print(f"CONTROL CHANGE\tCHANNEL {self.channel}\t{cc_name}\t{value}")
-        #             self.last_sequence = MIDI_SEQUENCE["CONTROL_CHANGE"]
+        elif self.state == 0xA0:
+            self.last_rx_parameters["poly_aftertouch"]["note"] = self.message
+            self.state = 0xA1
+        elif self.state == 0xA1:
+            self.last_rx_parameters["poly_aftertouch"]["pressure"] = self.message
+            self.state = 0
+            note_code = self.last_rx_parameters["poly_aftertouch"]["note"]
+            note_name = NOTE_CODE[self.last_rx_parameters["poly_aftertouch"]["note"]][0]
+            pressure = self.last_rx_parameters["poly_aftertouch"]["pressure"]
+            print(f"<- CH{self.channel+1} POLY AFTERTOUCH\t\t{note_code} ({note_name})\t\tPRESSURE {pressure}")
+            self.last_sequence = MIDI_SEQUENCE["POLY_AFTERTOUCH"]
+        # CONTROL CHANGE
+        elif self.state == 0xB0:
+            self.last_rx_parameters["control_change"]["code"] = self.message
+            self.state = 0xB1
+        elif self.state == 0xB1:
+            self.last_rx_parameters["control_change"]["value"] = self.message
+            self.state = 0
+            cc_name = CONTROL_CHANGE_CODE[self.last_rx_parameters["control_change"]["code"]]
+            cc_code = self.last_rx_parameters["control_change"]["code"]
+            value = self.last_rx_parameters["control_change"]["value"]
+            print(f"<- CH{self.channel+1} CONTROL CHANGE\t{cc_code} ({cc_name})\tVALUE {value}")
+            self.last_sequence = MIDI_SEQUENCE["CONTROL_CHANGE"]
         #
         #         # PROGRAM CHANGE
         #         elif self.state == 0xC0:
@@ -771,24 +772,25 @@ class Midi:
         #             program = self.program_change["program"]
         #             print(f"PROGRAM CHANGE\t\tCHANNEL {self.channel}\t{program}")
         #
-        #         # AFTERTOUCH
-        #         elif self.state == 0xD0:
-        #             self.aftertouch["pressure"] = self.message
-        #             self.state = 0
-        #             pressure = self.aftertouch["pressure"]
-        #             print(f"AFTERTOUCH\t\tCHANNEL {self.channel}\t{pressure}")
-        #
-        #         # PITCH BEND
-        #         elif self.state == 0xE0:
-        #             self.pitch_bend["note"] = self.message
-        #             self.state = 0xE1
-        #         elif self.state == 0xE1:
-        #             self.pitch_bend["bend"] = self.message
-        #             self.state = 0
-        #             note = self.pitch_bend["note"]
-        #             bend = self.pitch_bend["bend"]
-        #             print(f"PITCH BEND\t\tCHANNEL {self.channel}\tNOTE {note}\tBEND {bend}")
-        #
+        # AFTERTOUCH
+        elif self.state == 0xD0:
+            self.last_rx_parameters["channel_aftertouch"]["pressure"] = self.message
+            self.state = 0
+            pressure = self.last_rx_parameters["channel_aftertouch"]["pressure"]
+            print(f"<- CH{self.channel + 1} CHANNEL AFTERTOUCH\t\t\tPRESSURE {pressure}")
+        # PITCH BEND
+        elif self.state == 0xE0:
+            self.last_rx_parameters["pitch_bend"]["bend_LSB"] = self.message
+            self.state = 0xE1
+        elif self.state == 0xE1:
+            self.last_rx_parameters["pitch_bend"]["bend_MSB"] = self.message
+            bend_msb = self.last_rx_parameters["pitch_bend"]["bend_MSB"]
+            bend_lsb = self.last_rx_parameters["pitch_bend"]["bend_LSB"]
+            self.state = 0
+            self.last_rx_parameters["pitch_bend"]["bend"] = (bend_msb << 8) | bend_lsb
+            bend = self.last_rx_parameters["pitch_bend"]["bend"]
+            print(f"<- CH{self.channel+1} PITCH BEND\t\tBEND {bend}")
+
         #         elif self.state == 0xFA:
         #             self.state = 0
         #             print(f"START")
