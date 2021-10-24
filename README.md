@@ -20,6 +20,8 @@ my_midi = midi.Midi(UART_1, tx=MIDI_TX, rx=MIDI_RX)
 
 ### Sending MIDI messages
 
+![midi_out_circuit](https://i.imgur.com/Sw4neOf.png)
+
 ```python
 my_midi.send_note_on(midi.CHANNEL[1], midi.NOTE_CODE["C#4"], velocity=100)
 my_midi.send_note_off(midi.CHANNEL[1], midi.NOTE_CODE["C#4"])
@@ -28,6 +30,9 @@ my_midi.send_control_change(midi.CHANNEL[1], midi.CONTROL_CHANGE_CODE["MODULATIO
 ```
 
 ### Receiving MIDI messages
+
+![midi_in_circuit](https://i.imgur.com/4kmR5en.png)
+
 ```python
 while True:
     if my_midi.any() > 0:
