@@ -1,34 +1,19 @@
-# generic MIDI to CV/GATE
-from machine import Pin, PWM
+# Send a SYSEX sequence
+from machine import Pin
 import midi
 
 MIDI_TX = Pin(8)             # Optocoupled MIDI input in general purpose pin 8 (UART1TX)
 MIDI_RX = Pin(9)             # MIDI output in general purpose pin 9 (UART1RX)
-GATE = Pin(1)                # Gate out in general purpose pin 8
-PWM_NOTE = PWM(Pin(20))      # Note CV PWM out in general purpose pin 20
-PWM_VELOCITY = PWM(Pin(21))  # Velocity CV PWM out in general purpose pin 21
 
 my_midi = midi.Midi(1, tx=MIDI_TX, rx=MIDI_RX)
-note_balance = 0
-PWM_NOTE.freq(10000)
-PWM_VELOCITY.freq(10000)
+midi_sysex = [0x20, 0x19, 0x13, 0x20, 0x05, 0x29, 0x26, 0x08, 0x20, 0x22, 0x17, 0x30, 0x02, 0x21, 0x22,
+              0x13, 0x12, 0x25, 0x28, 0x26, 0x14, 0x29, 0x25, 0x10, 0x06, 0x28, 0x02, 0x23, 0x19, 0x12,
+              0x20, 0x04, 0x17, 0x23, 0x26, 0x15, 0x16, 0x12, 0x08, 0x08, 0x17, 0x11, 0x05, 0x01, 0x21,
+              0x19, 0x24, 0x07, 0x26, 0x29, 0x02, 0x28, 0x01, 0x23, 0x30, 0x07, 0x10, 0x30, 0x05, 0x03,
+              0x00, 0x26, 0x03, 0x30, 0x24, 0x25, 0x12, 0x08, 0x01, 0x27, 0x26, 0x06, 0x29, 0x16, 0x17,
+              0x12, 0x27, 0x26, 0x12, 0x22, 0x23, 0x00, 0x13, 0x11, 0x25, 0x26, 0x28, 0x19, 0x2,
+              0x13, 0x10, 0x08, 0x20, 0x16, 0x28, 0x05, 0x30, 0x17, 0x02, 0x00]
 
-
-while True:
-    if my_midi.any() > 0:
-        byte = my_midi.read(1)
-        my_midi.load_message(byte)
-        if my_midi.last_sequence == midi.MIDI_SEQUENCE["NOTE_ON"]:
-            note = my_midi.last_rx_parameters["note_on"]["note"]
-            velocity = my_midi.last_rx_parameters["note_on"]["velocity"]
-            note_duty = (note - 36) * pow(2, 16) // 60              # Pitch CV 0V~3.3V (C2~C7)
-            velocity_duty = (velocity + 1) * pow(2, 9) - 1          # Velocity CV 0V~3.3V
-            PWM_NOTE.duty_u16(note_duty)
-            PWM_VELOCITY.duty_u16(velocity_duty)
-            note_balance += 1
-            GATE.high()
-
-        if my_midi.last_sequence == midi.MIDI_SEQUENCE["NOTE_OFF"]:
-            note_balance -= 1
-            if note_balance == 0:
-                GATE.low()
+my_midi.send_sysex_start()          # sends 0xF0 to start a system exclusive sequence
+my_midi.send_sysex(midi_sysex)      # loops through the sysex commands list
+my_midi.send_sysex_stop()           # sends 0xF7 to stop a system exclusive sequence
